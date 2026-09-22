@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: model-router-demo
+
+  ai:
+    # ---- 主力模型：通义千问 ----
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY}
+    # ---- 推理模型：DeepSeek（走 OpenAI 兼容协议）----
+    openai:
+      base-url: https://api.deepseek.com
+      api-key: ${DEEPSEEK_API_KEY}
+      chat:
+        options:
+          model: deepseek-chat
+
+# ---- 路由策略（生产环境建议放 Nacos 配置中心，改策略不用发版）----
+router:
+  timeout:
+    connect-ms: 3000     # 连接超时
+    read-ms: 20000       # 读取超时（单次模型调用硬上限）
+  circuit-breaker:
+    failure-rate-threshold: 50    # 失败率过半 → 打开
+    wait-open-seconds: 30         # 打开后 30s 再试探
+
+# ---- 可观测：暴露熔断器状态（配合篇8 的可观测主题）----
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
