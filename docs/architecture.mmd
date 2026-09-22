@@ -1,0 +1,10 @@
+graph TD
+    REQ([请求]) --> TC[TaskClassifier<br/>判定任务类型]
+    TC --> ROUTE[ModelRouter<br/>生成候选列表]
+    ROUTE --> CB{熔断是否打开?}
+    CB -->|打开| NEXT[跳过，取下一个候选]
+    CB -->|关闭| CALL[调用模型]
+    CALL -->|成功| OK([返回响应])
+    CALL -->|失败| REC[记录失败<br/>熔断计数 +1]
+    REC --> NEXT
+    NEXT --> ROUTE
