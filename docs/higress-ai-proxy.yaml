@@ -1,0 +1,59 @@
+# Higress AI 网关配置示例：多模型 + 故障转移 + Token 计量
+#
+# 应用侧只需要把 base-url 指向网关，路由 / 降级 / 计量全在网关层完成。
+# 文档：https://higress.cn/docs/latest/plugins/ai-proxy/
+
+apiVersion: extensions.higress.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: ai-proxy
+  namespace: higress-system
+spec:
+  selector:
+    matchLabels:
+      higress: higress-system-higress-gateway   # 生效范围：AI 路由网关
+  url: oci://higress-registry.cn-hangzhou.cr.aliyuncs.com/plugins/ai-proxy:latest
+  defaultConfig:
+    # ---- 后端模型池：统一 OpenAI 协议接入 ----
+    providers:
+      - id: qwen
+        type: qwen
+        apiTokens:
+          - "${QWEN_KEY}"
+      - id: deepseek
+        type: deepseek
+        apiTokens:
+          - "${DEEPSEEK_KEY}"
+      - id: openai
+        type: openai
+        apiTokens:
+          - "${OPENAI_KEY}"
+
+    # ---- 故障转移：主模型失败自动切备用 ----
+    fallback:
+      - from: qwen
+        to: deepseek
+      - from: deepseek
+        to: qwen
+
+    # ---- 灰度 / A/B：按比例把流量分给不同模型 ----
+    # 新模型评估期先放 5% 流量，观察效果与成本
+    # route:
+    #   - model: qwen
+    #     weight: 95
+    #   - model: new-model
+    #     weight: 5
+
+    # ---- Token 计量：按服务维度统计用量与成本 ----
+    metrics:
+      enabled: true
+      labels:
+        - service     # 按调用方服务打标，便于成本归因
+
+---
+# 应用侧配置（Spring AI）：只认网关一个入口
+# spring:
+#   ai:
+#     openai:
+#       base-url: http://higress-gateway/ai
+#       api-key: ${GATEWAY_TOKEN}
